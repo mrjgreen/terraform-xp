@@ -2,7 +2,7 @@
 
 ### Features:
 
-* TFVars file inclusion based on `--env` setting
+* TFVars file inclusion based on `--env` setting (envs/\<ENV\>.tfvars)
 * Automatically stores a plan file from `terraform-xp plan`
 * Forces `terraform-xp apply` to run only from the generated plan file
 * Automatic remote state configuration based on settings in a `remotestate.ini`
@@ -15,6 +15,8 @@
 ### Usage
 
 The `--env` flag will set the name of the environment you wish to deploy. If not supplied, the default `global` will be used.
+
+terraform-xp will automaticall include a file matching your env setting, in the location: `envs/\<ENV\>.tfvars`.
 
 Generate a plan file from the directory containing your terraform files. It will place the plan file in `envs/myenv.tfplan`.
 
