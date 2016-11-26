@@ -25,13 +25,12 @@ terraform-xp will look for a file called `remotestate.ini` in your directory and
 
 The format should be:
 
-    REMOTE_STATE_BUCKET=my-terraform-state-bucket
-    REMOTE_STATE_REGION=eu-west-1
-    REMOTE_STATE_PATH=my-new-application
+    REMOTE_STATE_BUCKET=my-state-bucket
+    REMOTE_STATE_REGION=eu-west-1         # Must match the configured region of your state bucket.
+    REMOTE_STATE_PATH=my-new-application  # Key prefix for this app (E.G your app name), do NOT be change once `apply` has ran
 
-> Note: REMOTE_STATE_REGION must match the configured region of your state bucket.
 
-This will place your state file in the following location, where <ENV> is the value specified in the `--env` flag:
+This will place your state file in the following location, where \<ENV> is the value specified in the `--env` flag:
 
     s3://my-terraform-state-bucket/my-new-application/<ENV>.tfstate
 
