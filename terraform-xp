@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+set -e
+
+######################################################
+# Usage guide
+######################################################
+
+function usage() {
+    set -e
+
+    if [[ "$1" != "" ]]; then
+        printf "Error:\n    $1\n\n"
+    fi
+
+    cat <<-EOM
+Usage:
+    $0 --env <ENV> <subcommand> [terraform opts - passed directly to terraform]
+    Terraform wrapper to map the value of the --env variable to a
+    tfvars file located in 'envs/<ENV>.tfvars'.
+    Required arguments:
+        -e | --env                  Environment name, defaults to 'global'.
+    Optional arguments:
+        -h | --help                 Show this message.
+Examples:
+    Create:
+        Plan a deployment for the 'region1.qa' environment:
+            $0 --env region1.qa plan
+        Apply the planned deployment to the 'region1.qa' environment:
+            $0 --env region1.qa apply
+    Destroy:
+        Plan a destroy for the 'region1.prod' environment:
+            $0 --env region1.prod plan -destroy
+        Apply the planned destroy for the 'region1.prod' environment:
+            $0 --env region1.prod apply
+EOM
+
+    exit 2
+}
+
+
+function print_highlight {
+    printf "\e[32m$1\e[0m [0m\n"
+}
+
+function print_warning {
+    printf "\e[31m$1\e[0m [0m\n" >&2
+}
+
+######################################################
+# Check for required software
+######################################################
+function require {
+    command -v $1 > /dev/null 2>&1 || {
+        print_warning "Some of the required software is not installed: please install $1"
+        exit 1;
+    }
+}
+
+require terraform
+
+COMMAND="`command -v terraform`"
+
+
+######################################################
+# Parse command line arguments and options
+######################################################
+
+DEPLOYMENT_ENVIRONMENT='global'
+
+# Loop through arguments, two at a time for key and value
+while [[ $# > 0 ]]
+do
+    key="$1"
+    case $key in
+        -e|--env)
+            DEPLOYMENT_ENVIRONMENT="$2"
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            # If its a option and we don't recognise it, exit
+            if [[ $key == -* ]]; then
+                usage "Unknown option '$key'"
+                exit 2
+            fi
+
+            break
+        ;;
+    esac
+    shift
+done
+
+# We are done with the key value arguments, now collect the positional arguments
+
+# Action is a required arg
+ACTION=$1
+shift || true # we don't want to exit here if it fails, but later when we can display usage
+
+# Now collect the rest of the args to pass straight through to tf
+ARGS=$@
+
+######################################################
+# Validate our arguments
+######################################################
+
+if [[ "$ACTION" == "" ]]; then
+    usage "You must specify an action."
+    exit 1
+fi
+
+if [ $DEPLOYMENT_ENVIRONMENT == false ]; then
+    usage "--env / -e is a required argument."
+    exit 1
+fi
+
+
+
+######################################################
+# Set up our environment patterns
+######################################################
+
+TF_VARS=envs/$DEPLOYMENT_ENVIRONMENT.tfvars
+TF_PLAN=envs/$DEPLOYMENT_ENVIRONMENT.tfplan
+TF_STATE=envs/$DEPLOYMENT_ENVIRONMENT.tfstate
+
+REMOTE_STATE_FILE=remotestate.ini
+
+VARS_FILE_OPT=""
+
+if [ ! -f $TF_VARS ]; then
+    print_warning "Warning: Missing tfvars file for environment '$DEPLOYMENT_ENVIRONMENT'. Expected to find file in location '$TF_VARS'."
+else
+    VARS_FILE_OPT="-var-file=$TF_VARS"
+fi
+
+######################################################
+# Load remote state config file if we can find one
+######################################################
+
+remote_config() {
+    print_highlight "Configuring remote state"
+    rm -fr .terraform
+    echo "$COMMAND remote config -backend=s3 -backend-config=\"bucket=$REMOTE_STATE_BUCKET\" -backend-config=\"key=$REMOTE_STATE_PATH/$TF_STATE\" -backend-config=\"region=$REMOTE_STATE_REGION\""
+    $COMMAND remote config -backend=s3 -backend-config="bucket=$REMOTE_STATE_BUCKET" -backend-config="key=$REMOTE_STATE_PATH/$TF_STATE" -backend-config="region=$REMOTE_STATE_REGION"
+}
+
+if [ -f $REMOTE_STATE_FILE ]; then
+
+    print_highlight "Found remote state file '$REMOTE_STATE_FILE'"
+    source $REMOTE_STATE_FILE
+
+    if [ ! $REMOTE_STATE_BUCKET ] || [ ! $REMOTE_STATE_PATH ]  || [ ! $REMOTE_STATE_REGION ]; then
+        print_warning "Could not find valid remote state config variables in '$REMOTE_STATE_FILE'."
+
+        cat <<EOM
+Expected format:
+REMOTE_STATE_BUCKET=
+REMOTE_STATE_REGION=
+REMOTE_STATE_PATH=
+EOM
+        exit 1
+    fi
+
+    remote_config
+fi
+
+
+######################################################
+# Call the function
+######################################################
+
+case $ACTION in
+    plan)
+        print_highlight "Creating a plan"
+        echo "$COMMAND plan $VARS_FILE_OPT -input=false -state=$TF_STATE -out=$TF_PLAN ${ARGS[@]}"
+        $COMMAND plan $VARS_FILE_OPT -input=false -state=$TF_STATE -out=$TF_PLAN ${ARGS[@]}
+    ;;
+    apply)
+        trap "{ rm -f $TF_PLAN ;}" EXIT # Remove the plan file once its been ran - we don't want to re-execute a plan
+        print_highlight "Applying the plan file from $TF_PLAN, before removing plan file"
+        echo "$COMMAND apply -state=$TF_STATE $TF_PLAN ${ARGS[@]}"
+        $COMMAND apply -state=$TF_STATE $TF_PLAN ${ARGS[@]}
+    ;;
+    refresh|destroy)
+        print_highlight "Refreshing the state file"
+        echo "$COMMAND $ACTION $VARS_FILE_OPT -input=false -state=$TF_STATE ${ARGS[@]}"
+        $COMMAND $ACTION $VARS_FILE_OPT -input=false -state=$TF_STATE ${ARGS[@]}
+    ;;
+    taint|untaint|output)
+        echo "$COMMAND $ACTION -state=$TF_STATE ${ARGS[@]}"
+        $COMMAND $ACTION -state=$TF_STATE ${ARGS[@]}
+    ;;
+    show)
+        echo "$COMMAND $ACTION ${ARGS[@]} $TF_STATE"
+        $COMMAND $ACTION ${ARGS[@]} $TF_STATE
+    ;;
+    *)
+        echo "$COMMAND $ACTION ${ARGS[@]}"
+        $COMMAND $ACTION ${ARGS[@]}
+    ;;
+esac
