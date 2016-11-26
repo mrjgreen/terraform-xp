@@ -1,5 +1,11 @@
 # terraform-xp
-Bash wrapper around terraform, adding custom env files, forcing plan before apply, and automatic remote state config
+
+### Features:
+
+* TFVars file inclusion based on `--env` setting
+* Automatically stores a plan file from `terraform-xp plan`
+* Forces `terraform-xp apply` to run only from the generated plan file
+* Automatic remote state configuration based on settings in a `remotestate.ini`
 
 ### Installation
 
@@ -30,7 +36,7 @@ The format should be:
     REMOTE_STATE_PATH=my-new-application  # Key prefix for this app (E.G your app name), do NOT be change once `apply` has ran
 
 
-This will place your state file in the following location, where \<ENV> is the value specified in the `--env` flag:
+This will place your state file in the following location, where \<ENV\> is the value specified in the `--env` flag:
 
     s3://my-terraform-state-bucket/my-new-application/<ENV>.tfstate
 
