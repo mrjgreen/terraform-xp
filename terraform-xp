@@ -39,11 +39,11 @@ EOM
 
 
 function print_highlight {
-    printf "\e[32m$1\e[0m[0m\n"
+    printf "\e[32m$1\e[0m\n"
 }
 
 function print_warning {
-    printf "\e[31m$1\e[0m[0m\n" >&2
+    printf "\e[31m$1\e[0m\n" >&2
 }
 
 ######################################################
