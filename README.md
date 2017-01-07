@@ -24,7 +24,7 @@ Run `terraform-xp --help` to get started.
     
 ### Usage
 
-##### Environments
+#### Environments
 
 The `--env` flag will set the name of the environment you wish to deploy. If not supplied, the default `global` will be used.
 
@@ -39,7 +39,7 @@ Apply a plan file. It will look for the plan file in `envs/myenv.tfplan` and fai
 
     terraform-xp --env myenv apply
     
-##### Remote State
+#### Remote State
 
 terraform-xp will look for a file called `remotestate.ini` in your directory and if present, the remote state will be set up before executing the terraform command.
 
