@@ -1,5 +1,15 @@
 # terraform-xp
 
+### Why do I need this?
+
+Terraform is very flexible and you can tailor your workflow in many ways. As you do this, your terraform commands
+can become verbose, hard to type and easy to get wrong.
+
+This tool a wrapper around an simple but commonly used workflow, automatically passing terraform a tfvars file and configuring
+your remote state without the need for verbose commands.
+
+Run `terraform-xp --help` to get started.
+
 ### Features:
 
 * .tfvars file inclusion based on `--env` setting
